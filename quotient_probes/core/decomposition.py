@@ -11,13 +11,13 @@ where:
 The coherence parameter α = ||x₊||²/||x||² measures symmetry strength.
 """
 
+from typing import Callable, Optional, Tuple
+
 import numpy as np
-from typing import Tuple, Callable, Optional
 
 
 def decompose_symmetric(
-    x: np.ndarray,
-    sigma: Callable[[np.ndarray], np.ndarray]
+    x: np.ndarray, sigma: Callable[[np.ndarray], np.ndarray]
 ) -> np.ndarray:
     """
     Extract symmetric component: x₊ = (x + σ(x))/2
@@ -40,8 +40,7 @@ def decompose_symmetric(
 
 
 def decompose_antisymmetric(
-    x: np.ndarray,
-    sigma: Callable[[np.ndarray], np.ndarray]
+    x: np.ndarray, sigma: Callable[[np.ndarray], np.ndarray]
 ) -> np.ndarray:
     """
     Extract antisymmetric component: x₋ = (x - σ(x))/2
@@ -64,8 +63,7 @@ def decompose_antisymmetric(
 
 
 def decompose(
-    x: np.ndarray,
-    sigma: Callable[[np.ndarray], np.ndarray]
+    x: np.ndarray, sigma: Callable[[np.ndarray], np.ndarray]
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Full decomposition: x = x₊ + x₋
@@ -93,9 +91,7 @@ def decompose(
 
 
 def compute_coherence(
-    x: np.ndarray,
-    sigma: Callable[[np.ndarray], np.ndarray],
-    epsilon: float = 1e-10
+    x: np.ndarray, sigma: Callable[[np.ndarray], np.ndarray], epsilon: float = 1e-10
 ) -> float:
     """
     Compute coherence parameter: α = ||x₊||²/||x||²
@@ -130,7 +126,7 @@ def compute_coherence(
     if norm_x < epsilon:
         return 0.0  # Degenerate case
 
-    alpha = (norm_x_plus ** 2) / (norm_x ** 2)
+    alpha = (norm_x_plus**2) / (norm_x**2)
     return np.clip(alpha, 0.0, 1.0)  # Numerical safety
 
 
@@ -138,7 +134,7 @@ def compute_eigenspace_dimensions(
     sigma: Callable[[np.ndarray], np.ndarray],
     n: int,
     num_samples: int = 1000,
-    tolerance: float = 1e-6
+    tolerance: float = 1e-6,
 ) -> Tuple[int, int]:
     """
     Estimate dimensions of V₊ and V₋ via random sampling.
@@ -189,10 +185,7 @@ def compute_eigenspace_dimensions(
 
 
 def verify_decomposition(
-    x: np.ndarray,
-    x_plus: np.ndarray,
-    x_minus: np.ndarray,
-    tolerance: float = 1e-10
+    x: np.ndarray, x_plus: np.ndarray, x_minus: np.ndarray, tolerance: float = 1e-10
 ) -> bool:
     """
     Verify that x = x₊ + x₋ and components are orthogonal.

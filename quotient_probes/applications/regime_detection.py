@@ -15,13 +15,14 @@ The "lighthouse" metaphor: α(t) sweeps across the critical threshold like
 a lighthouse beam, illuminating regime boundaries.
 """
 
-import numpy as np
-from typing import List, Tuple, Optional, Dict, Any, Callable
-from dataclasses import dataclass
 import warnings
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, overload
 
-from ..core.symmetry_probe import SymmetryProbe
+import numpy as np
+
 from ..core.mdl_decision import critical_coherence
+from ..core.symmetry_probe import SymmetryProbe
 
 
 @dataclass
@@ -56,9 +57,7 @@ class SeamPoint:
 
     def __repr__(self) -> str:
         return (
-            f"Seam(t={self.index}, "
-            f"{self.direction}, "
-            f"Δα={self.strength:+.3f})"
+            f"Seam(t={self.index}, " f"{self.direction}, " f"Δα={self.strength:+.3f})"
         )
 
 
@@ -90,7 +89,7 @@ class LighthouseDetector:
         self,
         window_size: int = 64,
         overlap: float = 0.5,
-        involution: str = 'reverse',
+        involution: str = "reverse",
         K_lift: float = 1.0,
         min_regime_duration: int = 3,
     ):
@@ -146,7 +145,9 @@ class LighthouseDetector:
             window = time_series[start:end]
 
             # Compute coherence for this window
-            probe = SymmetryProbe(window, involution=self.involution, K_lift=self.K_lift)
+            probe = SymmetryProbe(
+                window, involution=self.involution, K_lift=self.K_lift
+            )
             alpha = probe.get_coherence()
 
             center = (start + end) // 2
@@ -181,11 +182,15 @@ class LighthouseDetector:
             alpha_after = coherences[i + 1]
 
             # Check for crossing
-            crosses_up = (alpha_before < self.alpha_crit) and (alpha_after >= self.alpha_crit)
-            crosses_down = (alpha_before >= self.alpha_crit) and (alpha_after < self.alpha_crit)
+            crosses_up = (alpha_before < self.alpha_crit) and (
+                alpha_after >= self.alpha_crit
+            )
+            crosses_down = (alpha_before >= self.alpha_crit) and (
+                alpha_after < self.alpha_crit
+            )
 
             if crosses_up or crosses_down:
-                direction = 'rising' if crosses_up else 'falling'
+                direction = "rising" if crosses_up else "falling"
 
                 # Strength: how far the coherence moved relative to threshold
                 strength = alpha_after - alpha_before
@@ -261,17 +266,34 @@ class LighthouseDetector:
         margin = 0.05  # Small margin around threshold
 
         if alpha > self.alpha_crit + margin:
-            return 'symmetric'
+            return "symmetric"
         elif alpha < self.alpha_crit - margin:
-            return 'antisymmetric'
+            return "antisymmetric"
         else:
-            return 'mixed'
+            return "mixed"
+
+    @overload
+    def detect(
+        self,
+        time_series: np.ndarray,
+        return_coherence: Literal[False] = False,
+    ) -> Tuple[List[SeamPoint], List[RegimeSegment]]: ...
+
+    @overload
+    def detect(
+        self,
+        time_series: np.ndarray,
+        return_coherence: Literal[True] = True,
+    ) -> Tuple[List[SeamPoint], List[RegimeSegment], np.ndarray, np.ndarray]: ...
 
     def detect(
         self,
         time_series: np.ndarray,
         return_coherence: bool = False,
-    ) -> Tuple[List[SeamPoint], List[RegimeSegment]]:
+    ) -> (
+        Tuple[List[SeamPoint], List[RegimeSegment]]
+        | Tuple[List[SeamPoint], List[RegimeSegment], np.ndarray, np.ndarray]
+    ):
         """
         Detect regime transitions in time series.
 
@@ -335,59 +357,92 @@ class LighthouseDetector:
         # Plot 1: Original time series with regime shading
         ax = axes[0]
         t = np.arange(len(time_series))
-        ax.plot(t, time_series, 'k-', linewidth=1, alpha=0.7, label='Time series')
+        ax.plot(t, time_series, "k-", linewidth=1, alpha=0.7, label="Time series")
 
         # Shade regimes
-        colors = {'symmetric': 'blue', 'antisymmetric': 'red', 'mixed': 'gray'}
+        colors = {"symmetric": "blue", "antisymmetric": "red", "mixed": "gray"}
         for regime in regimes:
             ax.axvspan(
-                regime.start_idx, regime.end_idx,
+                regime.start_idx,
+                regime.end_idx,
                 alpha=0.2,
-                color=colors.get(regime.regime_type, 'gray'),
-                label=f'{regime.regime_type}' if regime == regimes[0] else None
+                color=colors.get(regime.regime_type, "gray"),
+                label=f"{regime.regime_type}" if regime == regimes[0] else None,
             )
 
         # Mark seams
         for seam in seams:
-            color = 'green' if seam.direction == 'rising' else 'orange'
-            ax.axvline(seam.index, color=color, linestyle='--', linewidth=1.5, alpha=0.7)
+            color = "green" if seam.direction == "rising" else "orange"
+            ax.axvline(
+                seam.index, color=color, linestyle="--", linewidth=1.5, alpha=0.7
+            )
 
-        ax.set_ylabel('Amplitude', fontsize=11)
-        ax.set_title('Time Series with Detected Regimes', fontsize=13, fontweight='bold')
-        ax.legend(loc='upper right', fontsize=9)
+        ax.set_ylabel("Amplitude", fontsize=11)
+        ax.set_title(
+            "Time Series with Detected Regimes", fontsize=13, fontweight="bold"
+        )
+        ax.legend(loc="upper right", fontsize=9)
         ax.grid(True, alpha=0.3)
 
         # Plot 2: Coherence timeline with seams
         ax = axes[1]
-        ax.plot(window_centers, coherences, 'b-', linewidth=2, marker='o',
-               markersize=4, label='Coherence α(t)')
+        ax.plot(
+            window_centers,
+            coherences,
+            "b-",
+            linewidth=2,
+            marker="o",
+            markersize=4,
+            label="Coherence α(t)",
+        )
 
         # Critical threshold
-        ax.axhline(self.alpha_crit, color='red', linestyle='--', linewidth=2,
-                  label=f'α_crit = {self.alpha_crit:.4f}')
+        ax.axhline(
+            self.alpha_crit,
+            color="red",
+            linestyle="--",
+            linewidth=2,
+            label=f"α_crit = {self.alpha_crit:.4f}",
+        )
 
         # Shade decision regions
-        ax.axhspan(self.alpha_crit, 1.0, alpha=0.1, color='blue', label='Symmetric regime')
-        ax.axhspan(0, self.alpha_crit, alpha=0.1, color='red', label='Antisymmetric regime')
+        ax.axhspan(
+            self.alpha_crit, 1.0, alpha=0.1, color="blue", label="Symmetric regime"
+        )
+        ax.axhspan(
+            0, self.alpha_crit, alpha=0.1, color="red", label="Antisymmetric regime"
+        )
 
         # Mark seams
         for seam in seams:
-            color = 'green' if seam.direction == 'rising' else 'orange'
-            ax.plot(seam.index, seam.coherence_after, 'o', color=color,
-                   markersize=10, markeredgewidth=2, markeredgecolor='black')
+            color = "green" if seam.direction == "rising" else "orange"
+            ax.plot(
+                seam.index,
+                seam.coherence_after,
+                "o",
+                color=color,
+                markersize=10,
+                markeredgewidth=2,
+                markeredgecolor="black",
+            )
 
-        ax.set_xlabel('Time', fontsize=11)
-        ax.set_ylabel('Coherence α', fontsize=11)
-        ax.set_title(f'Lighthouse Signal (window={self.window_size}, overlap={self.overlap})',
-                    fontsize=13, fontweight='bold')
-        ax.legend(loc='upper right', fontsize=9)
+        ax.set_xlabel("Time", fontsize=11)
+        ax.set_ylabel("Coherence α", fontsize=11)
+        ax.set_title(
+            f"Lighthouse Signal (window={self.window_size}, overlap={self.overlap})",
+            fontsize=13,
+            fontweight="bold",
+        )
+        ax.legend(loc="upper right", fontsize=9)
         ax.grid(True, alpha=0.3)
         ax.set_ylim(-0.05, 1.05)
 
         plt.tight_layout()
         return fig
 
-    def get_statistics(self, seams: List[SeamPoint], regimes: List[RegimeSegment]) -> Dict[str, Any]:
+    def get_statistics(
+        self, seams: List[SeamPoint], regimes: List[RegimeSegment]
+    ) -> Dict[str, Any]:
         """
         Compute summary statistics.
 
@@ -400,39 +455,53 @@ class LighthouseDetector:
         """
         if len(regimes) == 0:
             return {
-                'num_seams': len(seams),
-                'num_regimes': 0,
-                'avg_regime_duration': 0,
+                "num_seams": len(seams),
+                "num_regimes": 0,
+                "avg_regime_duration": 0,
             }
 
         # Regime type distribution
-        regime_counts = {}
+        regime_counts: Dict[str, int] = {}
         for regime in regimes:
-            regime_counts[regime.regime_type] = regime_counts.get(regime.regime_type, 0) + 1
+            regime_counts[regime.regime_type] = (
+                regime_counts.get(regime.regime_type, 0) + 1
+            )
 
         # Seam direction distribution
-        rising_seams = sum(1 for s in seams if s.direction == 'rising')
-        falling_seams = sum(1 for s in seams if s.direction == 'falling')
+        rising_seams = sum(1 for s in seams if s.direction == "rising")
+        falling_seams = sum(1 for s in seams if s.direction == "falling")
 
         # Duration statistics
         durations = [r.duration for r in regimes]
 
         return {
-            'num_seams': len(seams),
-            'num_regimes': len(regimes),
-            'regime_type_counts': regime_counts,
-            'rising_seams': rising_seams,
-            'falling_seams': falling_seams,
-            'avg_regime_duration': np.mean(durations),
-            'std_regime_duration': np.std(durations),
-            'min_regime_duration': np.min(durations),
-            'max_regime_duration': np.max(durations),
-            'avg_coherence_symmetric': np.mean([
-                r.mean_coherence for r in regimes if r.regime_type == 'symmetric'
-            ]) if any(r.regime_type == 'symmetric' for r in regimes) else None,
-            'avg_coherence_antisymmetric': np.mean([
-                r.mean_coherence for r in regimes if r.regime_type == 'antisymmetric'
-            ]) if any(r.regime_type == 'antisymmetric' for r in regimes) else None,
+            "num_seams": len(seams),
+            "num_regimes": len(regimes),
+            "regime_type_counts": regime_counts,
+            "rising_seams": rising_seams,
+            "falling_seams": falling_seams,
+            "avg_regime_duration": np.mean(durations),
+            "std_regime_duration": np.std(durations),
+            "min_regime_duration": np.min(durations),
+            "max_regime_duration": np.max(durations),
+            "avg_coherence_symmetric": (
+                np.mean(
+                    [r.mean_coherence for r in regimes if r.regime_type == "symmetric"]
+                )
+                if any(r.regime_type == "symmetric" for r in regimes)
+                else None
+            ),
+            "avg_coherence_antisymmetric": (
+                np.mean(
+                    [
+                        r.mean_coherence
+                        for r in regimes
+                        if r.regime_type == "antisymmetric"
+                    ]
+                )
+                if any(r.regime_type == "antisymmetric" for r in regimes)
+                else None
+            ),
         }
 
 
@@ -484,7 +553,7 @@ def generate_synthetic_regime_series(
 
         # Pad or trim to exact duration
         if len(segment) < duration:
-            segment = np.pad(segment, (0, duration - len(segment)), mode='edge')
+            segment = np.pad(segment, (0, duration - len(segment)), mode="edge")
         else:
             segment = segment[:duration]
 

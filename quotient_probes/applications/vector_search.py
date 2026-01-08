@@ -12,13 +12,14 @@ Applications:
 3. Approximate nearest neighbor with symmetry pruning
 """
 
-import numpy as np
-from typing import List, Tuple, Optional, Union, Callable
-from dataclasses import dataclass
 import time
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Tuple, Union
 
-from ..core.symmetry_probe import SymmetryProbe
+import numpy as np
+
 from ..core.involutions import antipodal, get_involution
+from ..core.symmetry_probe import SymmetryProbe
 
 
 @dataclass
@@ -73,7 +74,7 @@ class AntipodalVectorDB:
     def __init__(
         self,
         embeddings: np.ndarray,
-        involution: Union[str, Callable] = 'antipodal',
+        involution: Union[str, Callable] = "antipodal",
         coherence_threshold: float = 0.6,
         auto_partition: bool = True,
         normalize: bool = True,
@@ -94,7 +95,9 @@ class AntipodalVectorDB:
         self.embeddings = np.array(embeddings)
 
         if self.embeddings.ndim != 2:
-            raise ValueError(f"Embeddings must be 2D (n_vectors, dim), got shape {self.embeddings.shape}")
+            raise ValueError(
+                f"Embeddings must be 2D (n_vectors, dim), got shape {self.embeddings.shape}"
+            )
 
         self.n_vectors, self.dim = self.embeddings.shape
 
@@ -109,7 +112,7 @@ class AntipodalVectorDB:
             self.involution_name = involution
         else:
             self.sigma = involution
-            self.involution_name = 'custom'
+            self.involution_name = "custom"
 
         self.coherence_threshold = coherence_threshold
         self.use_partitioning = False
@@ -154,7 +157,7 @@ class AntipodalVectorDB:
         self,
         query: np.ndarray,
         k: int = 5,
-        metric: str = 'cosine',
+        metric: str = "cosine",
         use_symmetry: bool = True,
     ) -> SearchResult:
         """
@@ -177,26 +180,28 @@ class AntipodalVectorDB:
         query = np.array(query).flatten()
 
         if query.shape[0] != self.dim:
-            raise ValueError(f"Query dimension {query.shape[0]} != database dimension {self.dim}")
+            raise ValueError(
+                f"Query dimension {query.shape[0]} != database dimension {self.dim}"
+            )
 
         # Normalize query if using cosine similarity
-        if metric == 'cosine':
+        if metric == "cosine":
             query = query / (np.linalg.norm(query) + 1e-10)
 
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         # Decide which partition to search
         if use_symmetry and self.use_partitioning:
             # Determine query orientation
-            query_orientation = '+' if query[0] >= 0 else '-'
+            query_orientation = "+" if query[0] >= 0 else "-"
 
             # Search only matching partition
-            if query_orientation == '+':
+            if query_orientation == "+":
                 search_indices = self.partition_plus
-                partition_name = 'positive'
+                partition_name = "positive"
             else:
                 search_indices = self.partition_minus
-                partition_name = 'negative'
+                partition_name = "negative"
 
             # Search partition
             candidates = self.embeddings[search_indices]
@@ -216,10 +221,11 @@ class AntipodalVectorDB:
             top_indices = top_k
             top_distances = distances[top_k]
 
-            partition_name = 'full'
+            partition_name = "full"
             partition_size = self.n_vectors
 
-        query_time_ms = (time.time() - start_time) * 1000
+        elapsed_s = time.perf_counter() - start_time
+        query_time_ms = max(elapsed_s * 1000, 1e-6)
 
         # Compute speedup
         speedup = self.n_vectors / partition_size if partition_size > 0 else 1.0
@@ -240,17 +246,17 @@ class AntipodalVectorDB:
         metric: str,
     ) -> np.ndarray:
         """Compute distances between query and candidates."""
-        if metric == 'cosine':
+        if metric == "cosine":
             # Cosine similarity -> distance = 1 - similarity
             similarities = candidates @ query
             return 1.0 - similarities
 
-        elif metric == 'euclidean':
+        elif metric == "euclidean":
             # Euclidean distance
             diff = candidates - query[np.newaxis, :]
             return np.linalg.norm(diff, axis=1)
 
-        elif metric == 'dot':
+        elif metric == "dot":
             # Negative dot product (for maximizing similarity)
             return -candidates @ query
 
@@ -261,7 +267,7 @@ class AntipodalVectorDB:
         self,
         queries: np.ndarray,
         k: int = 5,
-        metric: str = 'cosine',
+        metric: str = "cosine",
         use_symmetry: bool = True,
     ) -> List[SearchResult]:
         """
@@ -292,7 +298,7 @@ class AntipodalVectorDB:
         self,
         num_queries: int = 100,
         k: int = 10,
-        metric: str = 'cosine',
+        metric: str = "cosine",
     ) -> dict:
         """
         Benchmark search performance with and without symmetry.
@@ -311,51 +317,61 @@ class AntipodalVectorDB:
         """
         # Generate random queries
         queries = np.random.randn(num_queries, self.dim)
-        if metric == 'cosine':
+        if metric == "cosine":
             queries = queries / np.linalg.norm(queries, axis=1, keepdims=True)
 
         # Benchmark with symmetry
-        start = time.time()
+        start = time.perf_counter()
         results_sym = self.batch_search(queries, k=k, metric=metric, use_symmetry=True)
-        time_with_symmetry = time.time() - start
+        time_with_symmetry = time.perf_counter() - start
 
         # Benchmark without symmetry
-        start = time.time()
-        results_baseline = self.batch_search(queries, k=k, metric=metric, use_symmetry=False)
-        time_baseline = time.time() - start
+        start = time.perf_counter()
+        results_baseline = self.batch_search(
+            queries, k=k, metric=metric, use_symmetry=False
+        )
+        time_baseline = time.perf_counter() - start
+
+        safe_time_with_symmetry = max(time_with_symmetry, 1e-9)
+        safe_time_baseline = max(time_baseline, 1e-9)
 
         # Compute statistics
         avg_speedup = np.mean([r.speedup for r in results_sym])
         avg_partition_size = np.mean([r.partition_size for r in results_sym])
 
         return {
-            'num_queries': num_queries,
-            'k': k,
-            'time_with_symmetry_s': time_with_symmetry,
-            'time_baseline_s': time_baseline,
-            'speedup': time_baseline / time_with_symmetry,
-            'theoretical_speedup': avg_speedup,
-            'avg_partition_size': avg_partition_size,
-            'avg_query_time_sym_ms': time_with_symmetry / num_queries * 1000,
-            'avg_query_time_baseline_ms': time_baseline / num_queries * 1000,
-            'throughput_sym_qps': num_queries / time_with_symmetry,
-            'throughput_baseline_qps': num_queries / time_baseline,
+            "num_queries": num_queries,
+            "k": k,
+            "time_with_symmetry_s": time_with_symmetry,
+            "time_baseline_s": time_baseline,
+            "speedup": safe_time_baseline / safe_time_with_symmetry,
+            "theoretical_speedup": avg_speedup,
+            "avg_partition_size": avg_partition_size,
+            "avg_query_time_sym_ms": safe_time_with_symmetry / num_queries * 1000,
+            "avg_query_time_baseline_ms": safe_time_baseline / num_queries * 1000,
+            "throughput_sym_qps": num_queries / safe_time_with_symmetry,
+            "throughput_baseline_qps": num_queries / safe_time_baseline,
         }
 
     def get_statistics(self) -> dict:
         """Get database statistics."""
         return {
-            'n_vectors': self.n_vectors,
-            'dimension': self.dim,
-            'use_partitioning': self.use_partitioning,
-            'partition_plus_size': len(self.partition_plus) if self.use_partitioning else 0,
-            'partition_minus_size': len(self.partition_minus) if self.use_partitioning else 0,
-            'partition_balance': (
-                len(self.partition_plus) / self.n_vectors
-                if self.use_partitioning else 0.5
+            "n_vectors": self.n_vectors,
+            "dimension": self.dim,
+            "use_partitioning": self.use_partitioning,
+            "partition_plus_size": (
+                len(self.partition_plus) if self.use_partitioning else 0
             ),
-            'involution': self.involution_name,
-            'coherence_threshold': self.coherence_threshold,
+            "partition_minus_size": (
+                len(self.partition_minus) if self.use_partitioning else 0
+            ),
+            "partition_balance": (
+                len(self.partition_plus) / self.n_vectors
+                if self.use_partitioning
+                else 0.5
+            ),
+            "involution": self.involution_name,
+            "coherence_threshold": self.coherence_threshold,
         }
 
     def __repr__(self) -> str:

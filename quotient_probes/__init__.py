@@ -8,9 +8,9 @@ for exploiting involution symmetries in high-dimensional data.
 __version__ = "0.1.0"
 __author__ = "Mac Mayo"
 
+from .core.decomposition import decompose_antisymmetric, decompose_symmetric
+from .core.mdl_decision import compute_orientation_cost, mdl_decision_rule
 from .core.symmetry_probe import SymmetryProbe
-from .core.mdl_decision import mdl_decision_rule, compute_orientation_cost
-from .core.decomposition import decompose_symmetric, decompose_antisymmetric
 
 __all__ = [
     "SymmetryProbe",

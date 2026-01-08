@@ -2,11 +2,12 @@
 Tests for SymmetryProbe class and core functionality.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from quotient_probes import SymmetryProbe
+from quotient_probes.core.decomposition import compute_coherence, decompose
 from quotient_probes.core.involutions import antipodal, reverse
-from quotient_probes.core.decomposition import decompose, compute_coherence
 
 
 class TestSymmetryProbe:
@@ -15,10 +16,10 @@ class TestSymmetryProbe:
     def test_initialization(self):
         """Test probe initialization"""
         x = np.random.randn(50)
-        probe = SymmetryProbe(x, involution='antipodal')
+        probe = SymmetryProbe(x, involution="antipodal")
 
         assert probe.n == 50
-        assert probe.involution_name == 'antipodal'
+        assert probe.involution_name == "antipodal"
         assert probe.K_lift == 1.0  # Default Bernoulli
 
     def test_analyze(self):
@@ -39,7 +40,7 @@ class TestSymmetryProbe:
         half = np.array([1, 2, 3, 4, 5])
         x = np.concatenate([half, half[::-1]])
 
-        probe = SymmetryProbe(x, involution='reverse')
+        probe = SymmetryProbe(x, involution="reverse")
         alpha = probe.get_coherence()
 
         # Should be very close to 1.0 (perfect symmetry)
@@ -51,7 +52,7 @@ class TestSymmetryProbe:
         half = np.array([1, 2, 3, 4, 5])
         x = np.concatenate([half, -half[::-1]])
 
-        probe = SymmetryProbe(x, involution='reverse')
+        probe = SymmetryProbe(x, involution="reverse")
         alpha = probe.get_coherence()
 
         # Should be very close to 0.0 (purely antisymmetric)
@@ -60,7 +61,7 @@ class TestSymmetryProbe:
     def test_decomposition_reconstruction(self):
         """Test that x = x₊ + x₋"""
         x = np.random.randn(64)
-        probe = SymmetryProbe(x, involution='antipodal')
+        probe = SymmetryProbe(x, involution="antipodal")
 
         x_plus, x_minus = probe.decompose()
         reconstruction = x_plus + x_minus
@@ -70,12 +71,14 @@ class TestSymmetryProbe:
     def test_decomposition_orthogonality(self):
         """Test that x₊ ⊥ x₋"""
         x = np.random.randn(128)
-        probe = SymmetryProbe(x, involution='reverse')
+        probe = SymmetryProbe(x, involution="reverse")
 
         x_plus, x_minus = probe.decompose()
         inner_product = np.dot(x_plus, x_minus)
 
-        assert abs(inner_product) < 1e-10, f"Expected orthogonality, got ⟨x₊,x₋⟩ = {inner_product}"
+        assert (
+            abs(inner_product) < 1e-10
+        ), f"Expected orthogonality, got ⟨x₊,x₋⟩ = {inner_product}"
 
     def test_verify_decomposition(self):
         """Test decomposition verification"""
@@ -86,14 +89,14 @@ class TestSymmetryProbe:
         assert probe.verify() is True
 
     def test_critical_coherence_formula(self):
-        """Test α_crit = (n + K_lift)/(2n)"""
+        """Test α_crit = 1/2 + K_lift/(2(n-1))"""
         n = 64
         K_lift = 1.0
 
         probe = SymmetryProbe(np.zeros(n), K_lift=K_lift)
         alpha_crit = probe.get_critical_coherence()
 
-        expected = (n + K_lift) / (2 * n)
+        expected = 0.5 + (K_lift / (2 * (n - 1)))
         assert abs(alpha_crit - expected) < 1e-10
 
     def test_worked_example_n64(self):
@@ -104,9 +107,10 @@ class TestSymmetryProbe:
         probe = SymmetryProbe(np.zeros(n), K_lift=K_lift)
         alpha_crit = probe.get_critical_coherence()
 
-        expected_crit = 65 / 128
-        assert abs(alpha_crit - expected_crit) < 1e-10, \
-            f"Expected α_crit = {expected_crit:.6f}, got {alpha_crit:.6f}"
+        expected_crit = 0.5 + (K_lift / (2 * (n - 1)))
+        assert (
+            abs(alpha_crit - expected_crit) < 1e-10
+        ), f"Expected α_crit = {expected_crit:.6f}, got {alpha_crit:.6f}"
 
     def test_decision_boundary(self):
         """Test decision changes at α_crit"""
@@ -114,7 +118,7 @@ class TestSymmetryProbe:
 
         n = 100
         K_lift = 1.0
-        alpha_crit = (n + K_lift) / (2 * n)
+        alpha_crit = 0.5 + (K_lift / (2 * (n - 1)))
 
         # Just below threshold
         assert mdl_decision_rule(alpha_crit - 0.001, n, K_lift) is False
@@ -171,14 +175,14 @@ class TestMDLDecision:
         """Test K_lift = 1 for Bernoulli"""
         from quotient_probes.core.mdl_decision import compute_orientation_cost
 
-        K_lift = compute_orientation_cost('bernoulli')
+        K_lift = compute_orientation_cost("bernoulli")
         assert K_lift == 1.0
 
     def test_orientation_cost_constant(self):
         """Test K_lift = 0 for constant orientation"""
         from quotient_probes.core.mdl_decision import compute_orientation_cost
 
-        K_lift = compute_orientation_cost('constant')
+        K_lift = compute_orientation_cost("constant")
         assert K_lift == 0.0
 
     def test_asymptotic_behavior(self):

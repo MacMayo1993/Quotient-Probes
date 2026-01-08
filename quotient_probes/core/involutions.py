@@ -5,8 +5,11 @@ An involution σ is a self-inverse linear operator: σ² = I
 Common examples include antipodal reflection, time reversal, and spatial reflection.
 """
 
+from typing import Callable, Dict
+
 import numpy as np
-from typing import Callable
+
+Involution = Callable[[np.ndarray], np.ndarray]
 
 
 def antipodal(x: np.ndarray) -> np.ndarray:
@@ -82,7 +85,7 @@ def reflection(x: np.ndarray, normal: np.ndarray) -> np.ndarray:
     return x - 2 * projection[..., np.newaxis] * normal
 
 
-def custom_involution(sigma_func: Callable[[np.ndarray], np.ndarray]) -> Callable:
+def custom_involution(sigma_func: Involution) -> Involution:
     """
     Wrapper to validate custom involution operators.
 
@@ -104,6 +107,7 @@ def custom_involution(sigma_func: Callable[[np.ndarray], np.ndarray]) -> Callabl
         >>> my_sigma(np.array([1, 2, 3]))
         array([-1, -2, -3])
     """
+
     def validated_sigma(x: np.ndarray) -> np.ndarray:
         result = sigma_func(x)
 
@@ -121,7 +125,7 @@ def custom_involution(sigma_func: Callable[[np.ndarray], np.ndarray]) -> Callabl
     return validated_sigma
 
 
-def get_involution(name: str) -> Callable[[np.ndarray], np.ndarray]:
+def get_involution(name: str) -> Involution:
     """
     Get built-in involution by name.
 
@@ -136,16 +140,15 @@ def get_involution(name: str) -> Callable[[np.ndarray], np.ndarray]:
         >>> sigma(np.array([1, 2, 3]))
         array([-1, -2, -3])
     """
-    involutions = {
-        'antipodal': antipodal,
-        'reverse': reverse,
-        'time_reversal': reverse,
+    involutions: Dict[str, Involution] = {
+        "antipodal": antipodal,
+        "reverse": reverse,
+        "time_reversal": reverse,
     }
 
     if name not in involutions:
         raise ValueError(
-            f"Unknown involution '{name}'. "
-            f"Available: {list(involutions.keys())}"
+            f"Unknown involution '{name}'. " f"Available: {list(involutions.keys())}"
         )
 
     return involutions[name]
