@@ -16,7 +16,7 @@ For Markov chain: K_lift depends on transition structure
 """
 
 import numpy as np
-from typing import Tuple, Optional, Callable
+from typing import Tuple, Optional, Callable, Union
 
 
 def compute_orientation_cost(
@@ -166,7 +166,7 @@ def mdl_decision_rule(
     n: int,
     K_lift: float = 1.0,
     return_details: bool = False
-) -> bool | Tuple[bool, dict]:
+) -> Union[bool, Tuple[bool, dict]]:
     """
     MDL-based decision: Should we exploit symmetry?
 
