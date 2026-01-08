@@ -4,13 +4,14 @@ Integration tests for end-to-end workflows.
 Tests complete workflows combining multiple modules.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from quotient_probes import SymmetryProbe
-from quotient_probes.core.mdl_decision import mdl_decision_rule, critical_coherence
 from quotient_probes.applications.compression import SeamAwareCompressor
-from quotient_probes.applications.vector_search import AntipodalVectorDB
 from quotient_probes.applications.regime_detection import LighthouseDetector
+from quotient_probes.applications.vector_search import AntipodalVectorDB
+from quotient_probes.core.mdl_decision import critical_coherence, mdl_decision_rule
 
 
 class TestEndToEndWorkflows:
@@ -25,7 +26,7 @@ class TestEndToEndWorkflows:
         data = np.random.randn(n)
 
         # 2. Create probe and analyze
-        probe = SymmetryProbe(data, involution='reverse', K_lift=1.0)
+        probe = SymmetryProbe(data, involution="reverse", K_lift=1.0)
         alpha, bit_savings, should_exploit = probe.analyze()
 
         # 3. Verify analysis results
@@ -34,8 +35,8 @@ class TestEndToEndWorkflows:
 
         # 4. Get detailed results
         details = probe.get_decision_details()
-        assert 'alpha_crit' in details
-        assert 'delta_L' in details
+        assert "alpha_crit" in details
+        assert "delta_L" in details
 
         # 5. Decompose if should exploit
         if should_exploit:
@@ -50,15 +51,15 @@ class TestEndToEndWorkflows:
         np.random.seed(42)
 
         # 1. Generate time series
-        t = np.linspace(0, 4*np.pi, 256)
-        time_series = np.sin(t) + 0.5*np.cos(3*t)
+        t = np.linspace(0, 4 * np.pi, 256)
+        time_series = np.sin(t) + 0.5 * np.cos(3 * t)
 
         # 2. Analyze symmetry
-        probe = SymmetryProbe(time_series, involution='reverse')
+        probe = SymmetryProbe(time_series, involution="reverse")
         alpha = probe.get_coherence()
 
         # 3. Compress
-        compressor = SeamAwareCompressor(involution='reverse')
+        compressor = SeamAwareCompressor(involution="reverse")
         result = compressor.compress(time_series)
 
         # 4. Verify compression metadata
@@ -91,10 +92,10 @@ class TestEndToEndWorkflows:
         query = query / np.linalg.norm(query)
 
         # 5. Search with symmetry
-        result_sym = db.search(query, k=10, metric='cosine', use_symmetry=True)
+        result_sym = db.search(query, k=10, metric="cosine", use_symmetry=True)
 
         # 6. Search without symmetry (baseline)
-        result_baseline = db.search(query, k=10, metric='cosine', use_symmetry=False)
+        result_baseline = db.search(query, k=10, metric="cosine", use_symmetry=False)
 
         # 7. Verify results
         assert len(result_sym.indices) == 10
@@ -120,16 +121,12 @@ class TestEndToEndWorkflows:
 
         # 2. Create detector
         detector = LighthouseDetector(
-            window_size=64,
-            overlap=0.5,
-            involution='reverse',
-            K_lift=1.0
+            window_size=64, overlap=0.5, involution="reverse", K_lift=1.0
         )
 
         # 3. Detect regimes
         seams, regimes, centers, coherences = detector.detect(
-            time_series,
-            return_coherence=True
+            time_series, return_coherence=True
         )
 
         # 4. Verify detection
@@ -138,8 +135,8 @@ class TestEndToEndWorkflows:
 
         # 5. Get statistics
         stats = detector.get_statistics(seams, regimes)
-        assert 'num_seams' in stats
-        assert 'num_regimes' in stats
+        assert "num_seams" in stats
+        assert "num_regimes" in stats
 
     def test_mdl_decision_consistency(self):
         """Test consistency of MDL decisions across modules."""
@@ -152,7 +149,7 @@ class TestEndToEndWorkflows:
         x = np.random.randn(n)
 
         # 1. Compute coherence using SymmetryProbe
-        probe = SymmetryProbe(x, involution='reverse', K_lift=K_lift)
+        probe = SymmetryProbe(x, involution="reverse", K_lift=K_lift)
         alpha_probe = probe.get_coherence()
         should_exploit_probe = probe.analyze()[2]
 
@@ -176,13 +173,13 @@ class TestEndToEndWorkflows:
         data_batch = np.random.randn(batch_size, n)
 
         # 2. Compress batch
-        compressor = SeamAwareCompressor(involution='reverse')
+        compressor = SeamAwareCompressor(involution="reverse")
         result = compressor.compress(data_batch)
 
         # 3. Verify batch metadata
-        assert 'batch' in result.compressed_data
-        assert result.metadata['m'] == batch_size
-        assert result.metadata['n'] == n
+        assert "batch" in result.compressed_data
+        assert result.metadata["m"] == batch_size
+        assert result.metadata["n"] == n
 
         # 4. Decompress batch
         reconstructed_batch = compressor.decompress(result.compressed_data)
@@ -192,7 +189,7 @@ class TestEndToEndWorkflows:
         np.testing.assert_allclose(data_batch, reconstructed_batch, rtol=1e-10)
 
         # 6. Check individual results
-        individual_results = result.metadata['individual_results']
+        individual_results = result.metadata["individual_results"]
         assert len(individual_results) == batch_size
 
     def test_cross_involution_consistency(self):
@@ -202,7 +199,7 @@ class TestEndToEndWorkflows:
         n = 64
         x = np.random.randn(n)
 
-        involutions = ['antipodal', 'reverse']
+        involutions = ["antipodal", "reverse"]
         results = {}
 
         for inv in involutions:
@@ -210,15 +207,15 @@ class TestEndToEndWorkflows:
             alpha, savings, decision = probe.analyze()
 
             results[inv] = {
-                'alpha': alpha,
-                'decision': decision,
-                'savings': savings,
+                "alpha": alpha,
+                "decision": decision,
+                "savings": savings,
             }
 
         # Each involution should give valid results
         for inv, res in results.items():
-            assert 0 <= res['alpha'] <= 1
-            assert isinstance(res['decision'], bool)
+            assert 0 <= res["alpha"] <= 1
+            assert isinstance(res["decision"], bool)
 
     def test_performance_comparison_workflow(self):
         """Test performance comparison between methods."""
@@ -235,11 +232,11 @@ class TestEndToEndWorkflows:
         metrics = db.benchmark(num_queries=50, k=10)
 
         # Verify metrics
-        assert metrics['speedup'] > 0
-        assert metrics['time_baseline_s'] > 0
-        assert metrics['time_with_symmetry_s'] > 0
-        assert metrics['throughput_sym_qps'] > 0
-        assert metrics['throughput_baseline_qps'] > 0
+        assert metrics["speedup"] > 0
+        assert metrics["time_baseline_s"] > 0
+        assert metrics["time_with_symmetry_s"] > 0
+        assert metrics["throughput_sym_qps"] > 0
+        assert metrics["throughput_baseline_qps"] > 0
 
     def test_error_handling_workflow(self):
         """Test error handling in workflows."""
@@ -250,7 +247,7 @@ class TestEndToEndWorkflows:
 
         # Test invalid involution
         with pytest.raises(ValueError):
-            SymmetryProbe(np.random.randn(64), involution='invalid')
+            SymmetryProbe(np.random.randn(64), involution="invalid")
 
         # Test invalid overlap in detector
         with pytest.raises(ValueError):
@@ -271,7 +268,7 @@ class TestReproducibility:
         np.random.seed(42)
         data = np.random.randn(128)
 
-        compressor = SeamAwareCompressor(involution='reverse')
+        compressor = SeamAwareCompressor(involution="reverse")
 
         # Compress twice
         result1 = compressor.compress(data)
@@ -303,13 +300,13 @@ class TestReproducibility:
         # Run 1
         np.random.seed(42)
         data1 = np.random.randn(128)
-        probe1 = SymmetryProbe(data1, involution='reverse')
+        probe1 = SymmetryProbe(data1, involution="reverse")
         alpha1 = probe1.get_coherence()
 
         # Run 2 with same seed
         np.random.seed(42)
         data2 = np.random.randn(128)
-        probe2 = SymmetryProbe(data2, involution='reverse')
+        probe2 = SymmetryProbe(data2, involution="reverse")
         alpha2 = probe2.get_coherence()
 
         # Should be identical
@@ -317,5 +314,5 @@ class TestReproducibility:
         assert alpha1 == alpha2
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

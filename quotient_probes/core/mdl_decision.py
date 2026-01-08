@@ -15,14 +15,13 @@ For Bernoulli coin-flip model: K_lift = 1
 For Markov chain: K_lift depends on transition structure
 """
 
+from typing import Callable, Dict, Literal, Optional, Tuple, overload
+
 import numpy as np
-from typing import Tuple, Optional, Callable, Union
 
 
 def compute_orientation_cost(
-    model: str = 'bernoulli',
-    n: Optional[int] = None,
-    **kwargs
+    model: str = "bernoulli", n: Optional[int] = None, **kwargs
 ) -> float:
     """
     Compute orientation cost K_lift for lift map π⁻¹: V/σ → V
@@ -49,22 +48,22 @@ def compute_orientation_cost(
         >>> compute_orientation_cost('markov', transition_entropy=0.5)
         1.5
     """
-    if model == 'bernoulli':
+    if model == "bernoulli":
         # Independent fair coin flips: H(orientation) = 1 bit per decision
         return 1.0
 
-    elif model == 'constant':
+    elif model == "constant":
         # All orientations identical: no randomness
         return 0.0
 
-    elif model == 'markov':
+    elif model == "markov":
         # Markov chain: 1 bit initial state + transition entropy
-        transition_entropy = kwargs.get('transition_entropy', 0.0)
+        transition_entropy = kwargs.get("transition_entropy", 0.0)
         return 1.0 + transition_entropy
 
-    elif model == 'empirical':
+    elif model == "empirical":
         # Estimate from data
-        orientations = kwargs.get('orientations', None)
+        orientations = kwargs.get("orientations", None)
         if orientations is None:
             raise ValueError("'empirical' model requires 'orientations' array")
 
@@ -82,10 +81,7 @@ def compute_orientation_cost(
         )
 
 
-def critical_coherence(
-    n: int,
-    K_lift: float = 1.0
-) -> float:
+def critical_coherence(n: int, K_lift: float = 1.0) -> float:
     """
     Compute critical coherence threshold α_crit.
 
@@ -125,11 +121,7 @@ def critical_coherence(
     return alpha_crit
 
 
-def description_length_difference(
-    alpha: float,
-    n: int,
-    K_lift: float = 1.0
-) -> float:
+def description_length_difference(alpha: float, n: int, K_lift: float = 1.0) -> float:
     """
     Compute ΔL(α) = L_exploit - L_ignore
 
@@ -164,12 +156,30 @@ def description_length_difference(
     return delta_L
 
 
+@overload
 def mdl_decision_rule(
     alpha: float,
     n: int,
     K_lift: float = 1.0,
-    return_details: bool = False
-) -> Union[bool, Tuple[bool, dict]]:
+    return_details: Literal[False] = False,
+) -> bool: ...
+
+
+@overload
+def mdl_decision_rule(
+    alpha: float,
+    n: int,
+    K_lift: float = 1.0,
+    return_details: Literal[True] = True,
+) -> Tuple[bool, Dict[str, float | int | str]]: ...
+
+
+def mdl_decision_rule(
+    alpha: float,
+    n: int,
+    K_lift: float = 1.0,
+    return_details: bool = False,
+) -> bool | Tuple[bool, Dict[str, float | int | str]]:
     """
     MDL-based decision: Should we exploit symmetry?
 
@@ -210,23 +220,20 @@ def mdl_decision_rule(
 
     # Compute additional details
     details = {
-        'alpha': alpha,
-        'alpha_crit': alpha_crit,
-        'n': n,
-        'K_lift': K_lift,
-        'delta_L': delta_L,
-        'bit_savings': -delta_L,  # Negative ΔL means savings
-        'decision': 'exploit' if should_exploit else 'ignore',
-        'margin': alpha - alpha_crit,  # How far from boundary
+        "alpha": alpha,
+        "alpha_crit": alpha_crit,
+        "n": n,
+        "K_lift": K_lift,
+        "delta_L": delta_L,
+        "bit_savings": -delta_L,  # Negative ΔL means savings
+        "decision": "exploit" if should_exploit else "ignore",
+        "margin": alpha - alpha_crit,  # How far from boundary
     }
 
     return bool(should_exploit), details  # Convert numpy bool to Python bool
 
 
-def compression_gain(
-    alpha: float,
-    n: int
-) -> float:
+def compression_gain(alpha: float, n: int) -> float:
     """
     Compute raw compression gain from coherence (ignoring orientation cost).
 
@@ -254,9 +261,7 @@ def compression_gain(
 
 
 def batch_evaluate_boundary(
-    alphas: np.ndarray,
-    n: int,
-    K_lift: float = 1.0
+    alphas: np.ndarray, n: int, K_lift: float = 1.0
 ) -> np.ndarray:
     """
     Vectorized evaluation of decision boundary.
@@ -286,9 +291,7 @@ def batch_evaluate_boundary(
 
 
 def adaptive_threshold(
-    n: int,
-    K_lift_range: Tuple[float, float] = (0.0, 2.0),
-    num_points: int = 100
+    n: int, K_lift_range: Tuple[float, float] = (0.0, 2.0), num_points: int = 100
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute how α_crit varies with K_lift for fixed n.

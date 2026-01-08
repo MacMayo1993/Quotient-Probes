@@ -11,12 +11,13 @@ Applications:
 3. Model weight compression (neural networks)
 """
 
-import numpy as np
-from typing import Tuple, Optional, Dict, Any, Union, Callable
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union, overload
 
-from ..core.symmetry_probe import SymmetryProbe
+import numpy as np
+
 from ..core.involutions import get_involution
+from ..core.symmetry_probe import SymmetryProbe
 
 
 @dataclass
@@ -69,9 +70,9 @@ class SeamAwareCompressor:
 
     def __init__(
         self,
-        involution: Union[str, Callable] = 'antipodal',
+        involution: Union[str, Callable] = "antipodal",
         K_lift: Optional[float] = None,
-        orientation_model: str = 'bernoulli',
+        orientation_model: str = "bernoulli",
         quantization_bits: int = 32,
         verbose: bool = False,
     ):
@@ -97,15 +98,34 @@ class SeamAwareCompressor:
             self.involution_name = involution
         elif callable(involution):
             self.sigma = involution
-            self.involution_name = 'custom'
+            self.involution_name = "custom"
         else:
-            raise ValueError(f"involution must be string or callable, got {type(involution)}")
+            raise ValueError(
+                f"involution must be string or callable, got {type(involution)}"
+            )
+
+    @overload
+    def compress(
+        self,
+        data: np.ndarray,
+        return_probe: Literal[False] = False,
+    ) -> CompressionResult: ...
+
+    @overload
+    def compress(
+        self,
+        data: np.ndarray,
+        return_probe: Literal[True] = True,
+    ) -> Tuple[CompressionResult, Union[SymmetryProbe, List[SymmetryProbe]]]: ...
 
     def compress(
         self,
         data: np.ndarray,
         return_probe: bool = False,
-    ) -> Union[CompressionResult, Tuple[CompressionResult, SymmetryProbe]]:
+    ) -> Union[
+        CompressionResult,
+        Tuple[CompressionResult, Union[SymmetryProbe, List[SymmetryProbe]]],
+    ]:
         """
         Compress data using MDL-based symmetry exploitation decision.
 
@@ -123,11 +143,29 @@ class SeamAwareCompressor:
         """
         # Handle batch vs single vector
         if data.ndim == 1:
-            return self._compress_single(data, return_probe)
+            if return_probe:
+                return self._compress_single(data, return_probe=True)
+            return self._compress_single(data, return_probe=False)
         elif data.ndim == 2:
-            return self._compress_batch(data, return_probe)
+            if return_probe:
+                return self._compress_batch(data, return_probe=True)
+            return self._compress_batch(data, return_probe=False)
         else:
             raise ValueError(f"Data must be 1D or 2D, got shape {data.shape}")
+
+    @overload
+    def _compress_single(
+        self,
+        x: np.ndarray,
+        return_probe: Literal[False] = False,
+    ) -> CompressionResult: ...
+
+    @overload
+    def _compress_single(
+        self,
+        x: np.ndarray,
+        return_probe: Literal[True] = True,
+    ) -> Tuple[CompressionResult, SymmetryProbe]: ...
 
     def _compress_single(
         self,
@@ -174,29 +212,31 @@ class SeamAwareCompressor:
             # Simplified model: each component takes n/2 space on average
             # (accounting for sparsity in eigenspaces)
             compressed_size_bits = (
-                alpha * n * self.quantization_bits +  # x₊ component
-                (1 - alpha) * n * self.quantization_bits +  # x₋ component
-                probe.K_lift  # orientation cost
+                alpha * n * self.quantization_bits  # x₊ component
+                + (1 - alpha) * n * self.quantization_bits  # x₋ component
+                + probe.K_lift  # orientation cost
             )
 
             compressed_data = {
-                'mode': 'exploit',
-                'x_plus': x_plus,
-                'x_minus': x_minus,
-                'norm_plus': norm_plus,
-                'norm_minus': norm_minus,
-                'involution': self.involution_name,
+                "mode": "exploit",
+                "x_plus": x_plus,
+                "x_minus": x_minus,
+                "norm_plus": norm_plus,
+                "norm_minus": norm_minus,
+                "involution": self.involution_name,
             }
 
             if self.verbose:
-                print(f"✅ EXPLOIT: α={alpha:.3f} > α_crit, saved {bit_savings:.1f} bits")
+                print(
+                    f"✅ EXPLOIT: α={alpha:.3f} > α_crit, saved {bit_savings:.1f} bits"
+                )
 
         else:
             # IGNORE: Store x directly (isotropic compression)
             compressed_data = {
-                'mode': 'ignore',
-                'x': x,
-                'involution': self.involution_name,
+                "mode": "ignore",
+                "x": x,
+                "involution": self.involution_name,
             }
 
             # No benefit from symmetry, standard compression
@@ -217,22 +257,36 @@ class SeamAwareCompressor:
             coherence=alpha,
             bit_savings=bit_savings,
             metadata={
-                'n': n,
-                'K_lift': probe.K_lift,
-                'alpha_crit': probe.get_critical_coherence(),
-                'quantization_bits': self.quantization_bits,
-            }
+                "n": n,
+                "K_lift": probe.K_lift,
+                "alpha_crit": probe.get_critical_coherence(),
+                "quantization_bits": self.quantization_bits,
+            },
         )
 
         if return_probe:
             return result, probe
         return result
 
+    @overload
+    def _compress_batch(
+        self,
+        X: np.ndarray,
+        return_probe: Literal[False] = False,
+    ) -> CompressionResult: ...
+
+    @overload
+    def _compress_batch(
+        self,
+        X: np.ndarray,
+        return_probe: Literal[True] = True,
+    ) -> Tuple[CompressionResult, List[SymmetryProbe]]: ...
+
     def _compress_batch(
         self,
         X: np.ndarray,
         return_probe: bool = False,
-    ) -> CompressionResult:
+    ) -> Union[CompressionResult, Tuple[CompressionResult, List[SymmetryProbe]]]:
         """Compress a batch of vectors."""
         m, n = X.shape
 
@@ -252,12 +306,12 @@ class SeamAwareCompressor:
         total_original_bits = sum(r.original_size_bits for r in results)
         total_compressed_bits = sum(r.compressed_size_bits for r in results)
         avg_compression_ratio = total_original_bits / total_compressed_bits
-        avg_coherence = np.mean([r.coherence for r in results])
+        avg_coherence = float(np.mean([r.coherence for r in results]))
         total_bit_savings = sum(r.bit_savings for r in results)
         num_exploited = sum(r.exploited_symmetry for r in results)
 
         batch_result = CompressionResult(
-            compressed_data={'batch': [r.compressed_data for r in results]},
+            compressed_data={"batch": [r.compressed_data for r in results]},
             compression_ratio=avg_compression_ratio,
             original_size_bits=total_original_bits,
             compressed_size_bits=total_compressed_bits,
@@ -265,12 +319,12 @@ class SeamAwareCompressor:
             coherence=avg_coherence,
             bit_savings=total_bit_savings,
             metadata={
-                'm': m,
-                'n': n,
-                'num_exploited': num_exploited,
-                'exploitation_rate': num_exploited / m,
-                'individual_results': results,
-            }
+                "m": m,
+                "n": n,
+                "num_exploited": num_exploited,
+                "exploitation_rate": num_exploited / m,
+                "individual_results": results,
+            },
         )
 
         if return_probe:
@@ -296,24 +350,23 @@ class SeamAwareCompressor:
             >>> np.allclose(data, reconstructed)
             True
         """
-        if 'batch' in compressed_data:
+        if "batch" in compressed_data:
             # Batch decompression
-            return np.array([
-                self.decompress(item)
-                for item in compressed_data['batch']
-            ])
+            return np.array(
+                [self.decompress(item) for item in compressed_data["batch"]]
+            )
 
-        mode = compressed_data['mode']
+        mode = compressed_data["mode"]
 
-        if mode == 'exploit':
+        if mode == "exploit":
             # Reconstruct from x₊ and x₋
-            x_plus = compressed_data['x_plus']
-            x_minus = compressed_data['x_minus']
+            x_plus = compressed_data["x_plus"]
+            x_minus = compressed_data["x_minus"]
             return x_plus + x_minus
 
-        elif mode == 'ignore':
+        elif mode == "ignore":
             # Direct storage
-            return compressed_data['x']
+            return compressed_data["x"]
 
         else:
             raise ValueError(f"Unknown compression mode: {mode}")
@@ -321,7 +374,7 @@ class SeamAwareCompressor:
     def benchmark(
         self,
         data: np.ndarray,
-        baseline_compressor: Optional[Callable] = None,
+        baseline_compressor: Optional[Callable[[np.ndarray], CompressionResult]] = None,
     ) -> Dict[str, Any]:
         """
         Benchmark compression performance vs baseline.
@@ -353,18 +406,20 @@ class SeamAwareCompressor:
 
         # Compute improvements
         compression_ratio_improvement = result_seam.compression_ratio / baseline_ratio
-        size_reduction = (baseline_size - result_seam.compressed_size_bits) / baseline_size
+        size_reduction = (
+            baseline_size - result_seam.compressed_size_bits
+        ) / baseline_size
 
         return {
-            'seam_compression_ratio': result_seam.compression_ratio,
-            'baseline_compression_ratio': baseline_ratio,
-            'compression_ratio_improvement': compression_ratio_improvement,
-            'seam_compressed_size_bits': result_seam.compressed_size_bits,
-            'baseline_compressed_size_bits': baseline_size,
-            'size_reduction_pct': size_reduction * 100,
-            'bit_savings': result_seam.bit_savings,
-            'coherence': result_seam.coherence,
-            'exploited_symmetry': result_seam.exploited_symmetry,
+            "seam_compression_ratio": result_seam.compression_ratio,
+            "baseline_compression_ratio": baseline_ratio,
+            "compression_ratio_improvement": compression_ratio_improvement,
+            "seam_compressed_size_bits": result_seam.compressed_size_bits,
+            "baseline_compressed_size_bits": baseline_size,
+            "size_reduction_pct": size_reduction * 100,
+            "bit_savings": result_seam.bit_savings,
+            "coherence": result_seam.coherence,
+            "exploited_symmetry": result_seam.exploited_symmetry,
         }
 
 
@@ -372,8 +427,8 @@ def compress_time_series(
     time_series: np.ndarray,
     window_size: int = 128,
     overlap: float = 0.5,
-    involution: str = 'reverse',
-    **kwargs
+    involution: str = "reverse",
+    **kwargs,
 ) -> Tuple[CompressionResult, np.ndarray]:
     """
     Compress time series using sliding window + symmetry exploitation.
@@ -428,7 +483,7 @@ def compress_time_series(
 
 def estimate_compression_potential(
     data: np.ndarray,
-    involution: str = 'antipodal',
+    involution: str = "antipodal",
     K_lift: float = 1.0,
 ) -> Dict[str, Any]:
     """
@@ -456,11 +511,11 @@ def estimate_compression_potential(
     details = probe.get_decision_details()
 
     return {
-        'should_exploit': should_exploit,
-        'coherence': alpha,
-        'alpha_crit': details['alpha_crit'],
-        'estimated_savings_bits': bit_savings,
-        'estimated_compression_ratio': 1.0 + (bit_savings / (data.size * 32)),
-        'margin': details['margin'],
-        'decision': details['decision'],
+        "should_exploit": should_exploit,
+        "coherence": alpha,
+        "alpha_crit": details["alpha_crit"],
+        "estimated_savings_bits": bit_savings,
+        "estimated_compression_ratio": 1.0 + (bit_savings / (data.size * 32)),
+        "margin": details["margin"],
+        "decision": details["decision"],
     }

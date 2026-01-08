@@ -8,22 +8,23 @@ Provides unified interface for:
 4. Estimating orientation costs
 """
 
-import numpy as np
-from typing import Tuple, Callable, Optional, Union, Dict, Any
+from typing import Any, Callable, Dict, Literal, Optional, Tuple, Union, overload
 
-from .involutions import get_involution, antipodal
+import numpy as np
+
 from .decomposition import (
-    decompose,
-    decompose_symmetric,
-    decompose_antisymmetric,
     compute_coherence,
+    decompose,
+    decompose_antisymmetric,
+    decompose_symmetric,
     verify_decomposition,
 )
+from .involutions import antipodal, get_involution
 from .mdl_decision import (
-    mdl_decision_rule,
     compute_orientation_cost,
     critical_coherence,
     description_length_difference,
+    mdl_decision_rule,
 )
 
 
@@ -48,9 +49,9 @@ class SymmetryProbe:
     def __init__(
         self,
         data: np.ndarray,
-        involution: Union[str, Callable] = 'antipodal',
+        involution: Union[str, Callable] = "antipodal",
         K_lift: Optional[float] = None,
-        orientation_model: str = 'bernoulli',
+        orientation_model: str = "bernoulli",
     ):
         """
         Initialize symmetry probe.
@@ -89,7 +90,7 @@ class SymmetryProbe:
             self.involution_name = involution
         elif callable(involution):
             self.sigma = involution
-            self.involution_name = 'custom'
+            self.involution_name = "custom"
         else:
             raise ValueError(
                 f"involution must be string name or callable, got {type(involution)}"
@@ -98,10 +99,7 @@ class SymmetryProbe:
         # Set up orientation cost
         self.orientation_model = orientation_model
         if K_lift is None:
-            self.K_lift = compute_orientation_cost(
-                model=orientation_model,
-                n=self.n
-            )
+            self.K_lift = compute_orientation_cost(model=orientation_model, n=self.n)
         else:
             self.K_lift = K_lift
 
@@ -111,10 +109,24 @@ class SymmetryProbe:
         self.x_minus: Optional[np.ndarray] = None
         self._analysis_results: Optional[Dict[str, Any]] = None
 
+    @overload
     def analyze(
         self,
-        return_components: bool = False
-    ) -> Union[Tuple[float, float, bool], Tuple[float, float, bool, np.ndarray, np.ndarray]]:
+        return_components: Literal[False] = False,
+    ) -> Tuple[float, float, bool]: ...
+
+    @overload
+    def analyze(
+        self,
+        return_components: Literal[True] = True,
+    ) -> Tuple[float, float, bool, np.ndarray, np.ndarray]: ...
+
+    def analyze(
+        self,
+        return_components: bool = False,
+    ) -> Union[
+        Tuple[float, float, bool], Tuple[float, float, bool, np.ndarray, np.ndarray]
+    ]:
         """
         Analyze symmetry and make MDL decision.
 
@@ -154,14 +166,11 @@ class SymmetryProbe:
 
         # Make MDL decision
         should_exploit, details = mdl_decision_rule(
-            self.alpha,
-            self.n,
-            self.K_lift,
-            return_details=True
+            self.alpha, self.n, self.K_lift, return_details=True
         )
 
         self._analysis_results = details
-        bit_savings = details['bit_savings']
+        bit_savings = float(details["bit_savings"])
 
         if return_components:
             return self.alpha, bit_savings, should_exploit, self.x_plus, self.x_minus
@@ -262,10 +271,7 @@ class SymmetryProbe:
             self.decompose()
 
         return verify_decomposition(
-            self.data,
-            self.x_plus,
-            self.x_minus,
-            tolerance=tolerance
+            self.data, self.x_plus, self.x_minus, tolerance=tolerance
         )
 
     def summary(self) -> str:
@@ -310,10 +316,14 @@ class SymmetryProbe:
             f"Decision: {details['decision'].upper()}",
         ]
 
-        if details['decision'] == 'exploit':
-            summary.append(f"✓ Exploit symmetry (saves {details['bit_savings']:.1f} bits)")
+        if details["decision"] == "exploit":
+            summary.append(
+                f"✓ Exploit symmetry (saves {details['bit_savings']:.1f} bits)"
+            )
         else:
-            summary.append(f"✗ Ignore symmetry (costs {-details['bit_savings']:.1f} extra bits)")
+            summary.append(
+                f"✗ Ignore symmetry (costs {-details['bit_savings']:.1f} extra bits)"
+            )
 
         return "\n".join(summary)
 
