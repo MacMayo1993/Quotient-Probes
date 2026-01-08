@@ -339,6 +339,11 @@ class AntipodalVectorDB:
         avg_speedup = np.mean([r.speedup for r in results_sym])
         avg_partition_size = np.mean([r.partition_size for r in results_sym])
 
+        # Handle very fast operations (Windows timer resolution issue)
+        # Use max to ensure we don't divide by zero
+        time_with_symmetry = max(time_with_symmetry, 1e-6)
+        time_baseline = max(time_baseline, 1e-6)
+
         return {
             "num_queries": num_queries,
             "k": k,
