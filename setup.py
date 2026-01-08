@@ -40,6 +40,7 @@ setup(
         "numpy>=1.20.0",
         "scipy>=1.7.0",
         "matplotlib>=3.4.0",
+        "click>=8.0.0",
     ],
     extras_require={
         "interactive": [
@@ -50,6 +51,10 @@ setup(
         "dev": [
             "pytest>=6.2.0",
             "pytest-cov>=2.12.0",
+            "black>=22.0.0",
+            "flake8>=4.0.0",
+            "mypy>=0.950",
+            "isort>=5.10.0",
             "sphinx>=4.0.0",
             "sphinx-rtd-theme>=0.5.0",
         ],
