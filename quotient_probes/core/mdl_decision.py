@@ -89,8 +89,8 @@ def critical_coherence(
     """
     Compute critical coherence threshold α_crit.
 
-    From Theorem 1:
-        α_crit = (n + K_lift) / (2n) = 1/2 + K_lift/(2n)
+    From Theorem 1 (finite-sample correction):
+        α_crit = 1/2 + K_lift/(2(n-1))
 
     Args:
         n: Ambient dimension
@@ -106,7 +106,7 @@ def critical_coherence(
 
     Examples:
         >>> critical_coherence(n=64, K_lift=1.0)
-        0.5078125
+        0.5079365079365079
         >>> critical_coherence(n=256, K_lift=1.0)
         0.501953125
         >>> critical_coherence(n=64, K_lift=0.0)  # No orientation cost
@@ -118,7 +118,10 @@ def critical_coherence(
     if K_lift < 0:
         raise ValueError(f"Orientation cost must be non-negative, got K_lift={K_lift}")
 
-    alpha_crit = (n + K_lift) / (2.0 * n)
+    if n == 1:
+        return 0.5 + (K_lift / 2.0)
+
+    alpha_crit = 0.5 + (K_lift / (2.0 * (n - 1)))
     return alpha_crit
 
 
@@ -200,7 +203,7 @@ def mdl_decision_rule(
     delta_L = description_length_difference(alpha, n, K_lift)
 
     # Decision: exploit if ΔL < 0 (equivalently, α > α_crit)
-    should_exploit = alpha > alpha_crit
+    should_exploit = bool(alpha > alpha_crit)
 
     if not return_details:
         return should_exploit

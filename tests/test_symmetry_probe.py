@@ -86,14 +86,14 @@ class TestSymmetryProbe:
         assert probe.verify() is True
 
     def test_critical_coherence_formula(self):
-        """Test α_crit = (n + K_lift)/(2n)"""
+        """Test α_crit = 1/2 + K_lift/(2(n-1))"""
         n = 64
         K_lift = 1.0
 
         probe = SymmetryProbe(np.zeros(n), K_lift=K_lift)
         alpha_crit = probe.get_critical_coherence()
 
-        expected = (n + K_lift) / (2 * n)
+        expected = 0.5 + (K_lift / (2 * (n - 1)))
         assert abs(alpha_crit - expected) < 1e-10
 
     def test_worked_example_n64(self):
@@ -104,7 +104,7 @@ class TestSymmetryProbe:
         probe = SymmetryProbe(np.zeros(n), K_lift=K_lift)
         alpha_crit = probe.get_critical_coherence()
 
-        expected_crit = 65 / 128
+        expected_crit = 0.5 + (K_lift / (2 * (n - 1)))
         assert abs(alpha_crit - expected_crit) < 1e-10, \
             f"Expected α_crit = {expected_crit:.6f}, got {alpha_crit:.6f}"
 
@@ -114,7 +114,7 @@ class TestSymmetryProbe:
 
         n = 100
         K_lift = 1.0
-        alpha_crit = (n + K_lift) / (2 * n)
+        alpha_crit = 0.5 + (K_lift / (2 * (n - 1)))
 
         # Just below threshold
         assert mdl_decision_rule(alpha_crit - 0.001, n, K_lift) is False
