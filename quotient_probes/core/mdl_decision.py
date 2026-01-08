@@ -203,7 +203,7 @@ def mdl_decision_rule(
     should_exploit = alpha > alpha_crit
 
     if not return_details:
-        return should_exploit
+        return bool(should_exploit)  # Convert numpy bool to Python bool
 
     # Compute additional details
     details = {
@@ -217,7 +217,7 @@ def mdl_decision_rule(
         'margin': alpha - alpha_crit,  # How far from boundary
     }
 
-    return should_exploit, details
+    return bool(should_exploit), details  # Convert numpy bool to Python bool
 
 
 def compression_gain(
