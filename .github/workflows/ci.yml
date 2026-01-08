@@ -113,7 +113,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload benchmark results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: benchmark-results
@@ -145,7 +145,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload executed notebooks
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: executed-notebooks
@@ -411,7 +411,7 @@ jobs:
         test -f test_plot.png || exit 1
 
     - name: Upload CLI outputs
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: cli-outputs
@@ -522,7 +522,7 @@ jobs:
         twine check dist/*
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist-packages
         path: dist/
