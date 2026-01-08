@@ -1,0 +1,528 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, 'claude/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run tests with coverage
+      run: |
+        pytest --cov=quotient_probes --cov-report=xml --cov-report=term -v
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  lint:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install black flake8 mypy isort
+        pip install -e ".[dev]"
+
+    - name: Check code formatting with black
+      run: |
+        black --check --diff quotient_probes tests benchmarks
+
+    - name: Check import sorting with isort
+      run: |
+        isort --check-only --diff quotient_probes tests benchmarks
+
+    - name: Lint with flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 quotient_probes tests benchmarks --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 quotient_probes tests benchmarks --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+
+    - name: Type checking with mypy
+      run: |
+        mypy quotient_probes --ignore-missing-imports --no-strict-optional
+      continue-on-error: true
+
+  benchmarks:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Create results directory
+      run: mkdir -p benchmarks/results
+
+    - name: Run synthetic benchmarks
+      run: |
+        python -m benchmarks.synthetic --coherence-sweep
+      continue-on-error: true
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: benchmark-results
+        path: benchmarks/results/
+
+  notebooks:
+    name: Test Notebooks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[interactive,dev]"
+        pip install nbconvert jupyter
+
+    - name: Execute notebooks
+      run: |
+        jupyter nbconvert --to notebook --execute notebooks/*.ipynb --output-dir=notebooks/executed/
+      continue-on-error: true
+
+    - name: Upload executed notebooks
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: executed-notebooks
+        path: notebooks/executed/
+
+  docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        pip install sphinx sphinx-rtd-theme
+
+    - name: Build docs
+      run: |
+        # Placeholder for future docs build
+        echo "Documentation build placeholder"
+      continue-on-error: true
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit
+
+    - name: Check for security vulnerabilities
+      run: |
+        safety check --json || true
+
+    - name: Run bandit security linter
+      run: |
+        bandit -r quotient_probes -ll || true
+
+  reproducibility:
+    name: Reproducibility Tests
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Generate sample datasets
+      run: |
+        python data/generate_samples.py
+
+    - name: Test deterministic behavior (Run 1)
+      run: |
+        python -c "
+        import numpy as np
+        from quotient_probes import SymmetryProbe
+
+        np.random.seed(42)
+        x = np.random.randn(128)
+        probe = SymmetryProbe(x, involution='reverse')
+        alpha1 = probe.get_coherence()
+
+        # Save result
+        with open('result1.txt', 'w') as f:
+            f.write(str(alpha1))
+        print(f'Run 1: α={alpha1:.10f}')
+        "
+
+    - name: Test deterministic behavior (Run 2)
+      run: |
+        python -c "
+        import numpy as np
+        from quotient_probes import SymmetryProbe
+
+        np.random.seed(42)
+        x = np.random.randn(128)
+        probe = SymmetryProbe(x, involution='reverse')
+        alpha2 = probe.get_coherence()
+
+        # Compare with Run 1
+        with open('result1.txt', 'r') as f:
+            alpha1 = float(f.read())
+
+        assert abs(alpha1 - alpha2) < 1e-15, f'Non-deterministic: {alpha1} != {alpha2}'
+        print(f'Run 2: α={alpha2:.10f}')
+        print('✅ Reproducibility verified!')
+        "
+
+    - name: Test sample data analysis
+      run: |
+        python -c "
+        import numpy as np
+        from quotient_probes import SymmetryProbe
+
+        # Test symmetric sample
+        x = np.load('data/samples/symmetric_timeseries.npy')
+        probe = SymmetryProbe(x, involution='reverse')
+        alpha, _, decision = probe.analyze()
+
+        print(f'Symmetric sample: α={alpha:.3f}, decision={decision}')
+        assert alpha > 0.6, f'Expected high coherence, got {alpha}'
+
+        # Test antisymmetric sample
+        x = np.load('data/samples/antisymmetric_timeseries.npy')
+        probe = SymmetryProbe(x, involution='reverse')
+        alpha, _, decision = probe.analyze()
+
+        print(f'Antisymmetric sample: α={alpha:.3f}, decision={decision}')
+        assert alpha < 0.4, f'Expected low coherence, got {alpha}'
+
+        print('✅ Sample data tests passed!')
+        "
+
+    - name: Test compression reproducibility
+      run: |
+        python -c "
+        import numpy as np
+        from quotient_probes.applications.compression import SeamAwareCompressor
+
+        np.random.seed(42)
+        data = np.random.randn(128)
+
+        compressor = SeamAwareCompressor(involution='reverse')
+
+        # Compress twice
+        result1 = compressor.compress(data)
+        result2 = compressor.compress(data)
+
+        assert result1.coherence == result2.coherence
+        assert result1.compression_ratio == result2.compression_ratio
+        assert result1.exploited_symmetry == result2.exploited_symmetry
+
+        # Test decompression
+        reconstructed = compressor.decompress(result1.compressed_data)
+        assert np.allclose(data, reconstructed, rtol=1e-10)
+
+        print('✅ Compression reproducibility verified!')
+        "
+
+    - name: Test vector search reproducibility
+      run: |
+        python -c "
+        import numpy as np
+        from quotient_probes.applications.vector_search import AntipodalVectorDB
+
+        np.random.seed(42)
+        embeddings = np.random.randn(100, 64)
+        embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+        db = AntipodalVectorDB(embeddings, auto_partition=False)
+
+        query = np.random.randn(64)
+        query = query / np.linalg.norm(query)
+
+        # Search twice
+        result1 = db.search(query, k=5, metric='cosine', use_symmetry=False)
+        result2 = db.search(query, k=5, metric='cosine', use_symmetry=False)
+
+        assert np.array_equal(result1.indices, result2.indices)
+        assert np.allclose(result1.distances, result2.distances)
+
+        print('✅ Vector search reproducibility verified!')
+        "
+
+    - name: Test regime detection reproducibility
+      run: |
+        python -c "
+        import numpy as np
+        from quotient_probes.applications.regime_detection import LighthouseDetector
+
+        np.random.seed(42)
+        time_series = np.random.randn(500)
+
+        detector = LighthouseDetector(window_size=64, overlap=0.5)
+
+        # Detect twice
+        seams1, regimes1 = detector.detect(time_series)
+        seams2, regimes2 = detector.detect(time_series)
+
+        assert len(seams1) == len(seams2)
+        assert len(regimes1) == len(regimes2)
+
+        print('✅ Regime detection reproducibility verified!')
+        "
+
+  cli:
+    name: CLI Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install package
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Generate sample data
+      run: |
+        python data/generate_samples.py
+
+    - name: Test CLI analyze command
+      run: |
+        quotient-probe analyze data/samples/symmetric_timeseries.npy --involution=reverse
+
+    - name: Test CLI compress command
+      run: |
+        quotient-probe compress data/samples/embeddings_symmetric.npy --output=test_compressed.npz
+        test -f test_compressed.npz || exit 1
+
+    - name: Test CLI potential command
+      run: |
+        quotient-probe potential data/samples/mixed_timeseries.npy --involution=reverse
+
+    - name: Test CLI benchmark command
+      run: |
+        quotient-probe benchmark --synthetic --n=64 --num-points=5
+
+    - name: Test CLI visualize command
+      run: |
+        quotient-probe visualize --n=64 --k-lift=1.0 --output=test_plot.png
+        test -f test_plot.png || exit 1
+
+    - name: Upload CLI outputs
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: cli-outputs
+        path: |
+          test_compressed.npz
+          test_plot.png
+
+  integration:
+    name: Application Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Generate sample data
+      run: |
+        python data/generate_samples.py
+
+    - name: Run integration tests
+      run: |
+        pytest tests/test_integration.py -v --tb=short
+
+    - name: Test compression on sample data
+      run: |
+        python -c "
+        import numpy as np
+        from quotient_probes.applications.compression import SeamAwareCompressor
+
+        # Test on all samples
+        for sample in ['symmetric', 'antisymmetric', 'mixed']:
+            data = np.load(f'data/samples/{sample}_timeseries.npy')
+            compressor = SeamAwareCompressor(involution='reverse')
+            result = compressor.compress(data)
+            print(f'{sample}: α={result.coherence:.3f}, ratio={result.compression_ratio:.2f}x')
+        "
+
+    - name: Test vector search on sample data
+      run: |
+        python -c "
+        import numpy as np
+        from quotient_probes.applications.vector_search import AntipodalVectorDB
+
+        # Load symmetric embeddings
+        embeddings = np.load('data/samples/embeddings_symmetric.npy')
+        db = AntipodalVectorDB(embeddings, auto_partition=True)
+
+        # Benchmark
+        metrics = db.benchmark(num_queries=20, k=5)
+        print(f'Vector search speedup: {metrics[\"speedup\"]:.2f}x')
+
+        assert metrics['speedup'] > 0, 'Speedup must be positive'
+        "
+
+    - name: Test regime detection on sample data
+      run: |
+        python -c "
+        import numpy as np
+        from quotient_probes.applications.regime_detection import LighthouseDetector
+
+        # Load regime-structured data
+        data = np.load('data/samples/regime_timeseries.npy')
+        detector = LighthouseDetector(window_size=64, overlap=0.5)
+
+        seams, regimes = detector.detect(data)
+        stats = detector.get_statistics(seams, regimes)
+
+        print(f'Detected {stats[\"num_seams\"]} seams and {stats[\"num_regimes\"]} regimes')
+        assert stats['num_regimes'] > 0, 'Should detect at least one regime'
+        "
+
+  package:
+    name: Build and Check Package
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install build tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Build package
+      run: |
+        python -m build
+
+    - name: Check package
+      run: |
+        twine check dist/*
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist-packages
+        path: dist/
