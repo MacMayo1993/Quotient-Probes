@@ -217,7 +217,7 @@ class SymmetryProbe:
         Get critical coherence threshold for this dimension and orientation cost.
 
         Returns:
-            α_crit = (n + K_lift)/(2n)
+            α_crit = 1/2 + K_lift/(2(n-1))
         """
         return critical_coherence(self.n, self.K_lift)
 
