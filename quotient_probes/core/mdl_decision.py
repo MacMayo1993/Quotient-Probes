@@ -16,7 +16,7 @@ For Markov chain: K_lift depends on transition structure
 """
 
 import numpy as np
-from typing import Tuple, Optional, Callable
+from typing import Tuple, Optional, Callable, Union
 
 
 def compute_orientation_cost(
@@ -169,7 +169,7 @@ def mdl_decision_rule(
     n: int,
     K_lift: float = 1.0,
     return_details: bool = False
-) -> bool | Tuple[bool, dict]:
+) -> Union[bool, Tuple[bool, dict]]:
     """
     MDL-based decision: Should we exploit symmetry?
 
@@ -206,7 +206,7 @@ def mdl_decision_rule(
     should_exploit = bool(alpha > alpha_crit)
 
     if not return_details:
-        return should_exploit
+        return bool(should_exploit)  # Convert numpy bool to Python bool
 
     # Compute additional details
     details = {
@@ -220,7 +220,7 @@ def mdl_decision_rule(
         'margin': alpha - alpha_crit,  # How far from boundary
     }
 
-    return should_exploit, details
+    return bool(should_exploit), details  # Convert numpy bool to Python bool
 
 
 def compression_gain(
