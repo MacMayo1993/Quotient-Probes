@@ -1,0 +1,19 @@
+name: Project Board Automation
+
+on:
+  issues:
+    types: [opened, labeled]
+  pull_request:
+    types: [opened, labeled]
+
+jobs:
+  add-to-project:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' || github.event_name == 'pull_request'
+
+    steps:
+    - name: Add to project board
+      uses: actions/add-to-project@v0.5.0
+      with:
+        project-url: ${{ secrets.PROJECT_URL }}
+        github-token: ${{ secrets.PROJECT_PAT }}

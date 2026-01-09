@@ -155,6 +155,124 @@ quotient-probe visualize --n=128 --k-lift=1.0 --output=plot.png
 
 ---
 
+## Which Symmetry Test Should I Use?
+
+**TL;DR**: Choose the involution that matches your data's natural symmetry structure.
+
+### Quick Decision Tree
+
+```
+┌─ Is your data order-sensitive (sequences, time series)?
+│  ├─ YES → Use 'reverse' (time-reversal symmetry)
+│  └─ NO  → ↓
+│
+├─ Do opposite values have identical meaning (embeddings, gradients)?
+│  ├─ YES → Use 'antipodal' (sign symmetry)
+│  └─ NO  → ↓
+│
+└─ Do you have spatial data with mirror symmetry?
+   ├─ YES → Use custom reflection involution
+   └─ NO  → Antipodal is your best bet
+```
+
+### Built-in Involutions
+
+| Involution | Operator | Use Cases | Example Data |
+|------------|----------|-----------|--------------|
+| **`antipodal`** | σ(x) = -x | Word embeddings, gradient vectors, signed features | BERT embeddings, neural gradients, correlation vectors |
+| **`reverse`** | σ(x₁...xₙ) = xₙ...x₁ | Time series, sequences, palindromic patterns | Audio signals, financial data, DNA sequences |
+| **`reflection`** | σ(x, y) = (x, -y) | Spatial symmetry, image processing | Vertically-flipped images, symmetric 2D patterns |
+
+### Usage Examples
+
+**When to use Antipodal:**
+```python
+# Word embeddings: "king" and "-king" encode same concept
+embeddings = load_bert_embeddings(corpus)
+probe = SymmetryProbe(embeddings[0], involution='antipodal')
+if probe.should_exploit():
+    # Only store sign + magnitude, save 50% space
+    compressed = probe.compress()
+```
+
+**When to use Reverse:**
+```python
+# Stock prices: palindromic patterns indicate reversals
+prices = np.array([100, 105, 110, 105, 100])  # Symmetric peak
+probe = SymmetryProbe(prices, involution='reverse')
+alpha = probe.get_coherence()  # ≈ 1.0 (perfect time-reversal symmetry)
+```
+
+**When to use Custom Involution:**
+```python
+# 2D spatial reflection
+def reflect_vertical(x):
+    # x is (height, width) flattened array
+    img = x.reshape(height, width)
+    return np.flip(img, axis=0).flatten()
+
+probe = SymmetryProbe(image_data, involution=reflect_vertical)
+```
+
+### Performance Considerations
+
+| Dimension | α_crit (Bernoulli) | Intuition |
+|-----------|-------------------|-----------|
+| n = 64    | 0.5078            | Need 51% coherence to justify |
+| n = 256   | 0.5020            | Need 50.2% coherence |
+| n = 1024  | 0.5005            | Nearly 50% threshold |
+
+**Rule of thumb**: For high-dimensional data (n > 256), even weak symmetry (α ≈ 0.55) is worth exploiting.
+
+### Common Pitfalls
+
+❌ **Wrong**: Using `antipodal` on ordered sequences
+```python
+# BAD: Reversal != sign flip for sequences
+time_series = [1, 2, 3, 4, 5]
+probe = SymmetryProbe(time_series, involution='antipodal')  # Meaningless!
+```
+
+✅ **Right**: Using `reverse` for time series
+```python
+# GOOD: Time-reversal symmetry makes sense
+probe = SymmetryProbe(time_series, involution='reverse')
+```
+
+❌ **Wrong**: Using `reverse` on embeddings
+```python
+# BAD: Element order has no meaning in embeddings
+embedding = bert_model.encode("hello")
+probe = SymmetryProbe(embedding, involution='reverse')  # Nonsensical!
+```
+
+✅ **Right**: Using `antipodal` for embeddings
+```python
+# GOOD: Sign symmetry is natural for embeddings
+probe = SymmetryProbe(embedding, involution='antipodal')
+```
+
+### Still Unsure?
+
+**Ask yourself**: *"If I apply σ(x), does it represent the same underlying phenomenon?"*
+
+- **Embeddings**: Yes, -x encodes same concept → `antipodal`
+- **Time series**: Only if palindromic → `reverse`
+- **Images**: Only if spatially symmetric → `reflection`
+
+When in doubt, **measure coherence for both and compare**:
+```python
+probe_anti = SymmetryProbe(data, involution='antipodal')
+probe_rev = SymmetryProbe(data, involution='reverse')
+
+print(f"Antipodal coherence: {probe_anti.get_coherence():.3f}")
+print(f"Reverse coherence: {probe_rev.get_coherence():.3f}")
+
+# Higher coherence = more natural symmetry for your data
+```
+
+---
+
 ## Theory Overview
 
 ### The Quotient Space Problem

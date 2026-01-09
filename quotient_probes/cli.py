@@ -7,6 +7,7 @@ Usage:
     quotient-probe benchmark --synthetic --n=256
 """
 
+import json
 import sys
 from pathlib import Path
 from typing import Optional
@@ -58,7 +59,8 @@ def main():
 )
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.option("--plot", "-p", is_flag=True, help="Generate visualization")
-def analyze(data_file, involution, k_lift, orientation_model, verbose, plot):
+@click.option("--json", "-j", "output_json", is_flag=True, help="Output results in JSON format")
+def analyze(data_file, involution, k_lift, orientation_model, verbose, plot, output_json):
     """
     Analyze symmetry structure of data file.
 
@@ -80,8 +82,9 @@ def analyze(data_file, involution, k_lift, orientation_model, verbose, plot):
     # Handle batch vs single vector
     if data.ndim > 1:
         if data.shape[0] > 1:
-            click.echo(f"📦 Batch mode: analyzing {data.shape[0]} vectors")
-            analyze_batch(data, involution, k_lift, orientation_model, verbose)
+            if not output_json:
+                click.echo(f"📦 Batch mode: analyzing {data.shape[0]} vectors")
+            analyze_batch(data, involution, k_lift, orientation_model, verbose, output_json)
             return
         else:
             data = data[0]
@@ -93,6 +96,25 @@ def analyze(data_file, involution, k_lift, orientation_model, verbose, plot):
 
     # Analyze
     alpha, bit_savings, should_exploit = probe.analyze()
+
+    # Output in JSON format if requested
+    if output_json:
+        details = probe.get_decision_details()
+        output = {
+            "file": str(data_file),
+            "shape": list(data.shape) if hasattr(data, 'shape') else None,
+            "involution": involution,
+            "orientation_model": orientation_model,
+            "coherence": float(alpha),
+            "should_exploit": bool(should_exploit),
+            "bit_savings": float(bit_savings),
+            "dimension": int(probe.n),
+            "K_lift": float(probe.K_lift),
+            "alpha_critical": float(details.get("alpha_crit", 0)),
+            "delta_L": float(details.get("delta_L", 0))
+        }
+        click.echo(json.dumps(output, indent=2))
+        return
 
     # Print summary
     if verbose:
@@ -140,7 +162,7 @@ def analyze(data_file, involution, k_lift, orientation_model, verbose, plot):
             click.echo("⚠️  Install matplotlib for plotting: pip install matplotlib")
 
 
-def analyze_batch(data, involution, k_lift, orientation_model, verbose):
+def analyze_batch(data, involution, k_lift, orientation_model, verbose, output_json=False):
     """Analyze batch of vectors."""
     results = []
 
@@ -152,11 +174,17 @@ def analyze_batch(data, involution, k_lift, orientation_model, verbose):
             orientation_model=orientation_model,
         )
         alpha, bit_savings, should_exploit = probe.analyze()
+        details = probe.get_decision_details()
         results.append(
             {
-                "alpha": alpha,
-                "should_exploit": should_exploit,
-                "bit_savings": bit_savings,
+                "index": i,
+                "alpha": float(alpha),
+                "should_exploit": bool(should_exploit),
+                "bit_savings": float(bit_savings),
+                "dimension": int(probe.n),
+                "K_lift": float(probe.K_lift),
+                "alpha_critical": float(details.get("alpha_crit", 0)),
+                "delta_L": float(details.get("delta_L", 0))
             }
         )
 
@@ -164,6 +192,26 @@ def analyze_batch(data, involution, k_lift, orientation_model, verbose):
     alphas = [r["alpha"] for r in results]
     exploit_count = sum(r["should_exploit"] for r in results)
     total_savings = sum(r["bit_savings"] for r in results)
+
+    # Output in JSON format if requested
+    if output_json:
+        output = {
+            "batch_size": len(results),
+            "involution": involution,
+            "orientation_model": orientation_model,
+            "summary": {
+                "vectors_analyzed": len(results),
+                "exploitation_count": exploit_count,
+                "exploitation_rate": float(exploit_count / len(results)),
+                "avg_coherence": float(np.mean(alphas)),
+                "std_coherence": float(np.std(alphas)),
+                "total_bit_savings": float(total_savings),
+                "avg_bit_savings": float(total_savings / len(results))
+            },
+            "results": results
+        }
+        click.echo(json.dumps(output, indent=2))
+        return
 
     click.echo(f"\n{'='*60}")
     click.echo(f"BATCH ANALYSIS SUMMARY")

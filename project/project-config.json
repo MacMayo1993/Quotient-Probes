@@ -1,0 +1,12 @@
+{
+  "label_to_status": {
+    "bug": "To Do",
+    "enhancement": "To Do",
+    "documentation": "To Do",
+    "in-progress": "In Progress",
+    "ready-for-review": "Review",
+    "blocked": "Blocked",
+    "done": "Done"
+  },
+  "default_status": "To Do"
+}
