@@ -175,8 +175,8 @@ These sample datasets are provided for testing and educational purposes under th
 with open(samples_dir / "README.md", "w", encoding="utf-8") as f:
     f.write(readme_content)
 
-print("\n✅ Sample datasets generated successfully!")
-print(f"📁 Location: {samples_dir}")
+print("\nSample datasets generated successfully!")
+print(f"Location: {samples_dir}")
 print("\nGenerated files:")
 for file in sorted(samples_dir.glob("*.npy")):
     size_kb = file.stat().st_size / 1024
