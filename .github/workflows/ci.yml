@@ -141,8 +141,10 @@ jobs:
 
     - name: Execute notebooks
       run: |
-        jupyter nbconvert --to notebook --execute notebooks/*.ipynb --output-dir=notebooks/executed/
+        export MPLBACKEND=Agg
+        jupyter nbconvert --to notebook --execute notebooks/*.ipynb --output-dir=notebooks/executed/ --ExecutePreprocessor.timeout=300 --ExecutePreprocessor.kernel_name=python3
       continue-on-error: true
+      timeout-minutes: 10
 
     - name: Upload executed notebooks
       uses: actions/upload-artifact@v4
@@ -245,7 +247,7 @@ jobs:
         # Save result
         with open('result1.txt', 'w') as f:
             f.write(str(alpha1))
-        print(f'Run 1: α={alpha1:.10f}')
+        print(f'Run 1: alpha={alpha1:.10f}')
         "
 
     - name: Test deterministic behavior (Run 2)
@@ -264,8 +266,8 @@ jobs:
             alpha1 = float(f.read())
 
         assert abs(alpha1 - alpha2) < 1e-15, f'Non-deterministic: {alpha1} != {alpha2}'
-        print(f'Run 2: α={alpha2:.10f}')
-        print('✅ Reproducibility verified!')
+        print(f'Run 2: alpha={alpha2:.10f}')
+        print('Reproducibility verified!')
         "
 
     - name: Test sample data analysis
@@ -279,7 +281,7 @@ jobs:
         probe = SymmetryProbe(x, involution='reverse')
         alpha, _, decision = probe.analyze()
 
-        print(f'Symmetric sample: α={alpha:.3f}, decision={decision}')
+        print(f'Symmetric sample: alpha={alpha:.3f}, decision={decision}')
         assert alpha > 0.6, f'Expected high coherence, got {alpha}'
 
         # Test antisymmetric sample
@@ -287,10 +289,10 @@ jobs:
         probe = SymmetryProbe(x, involution='reverse')
         alpha, _, decision = probe.analyze()
 
-        print(f'Antisymmetric sample: α={alpha:.3f}, decision={decision}')
+        print(f'Antisymmetric sample: alpha={alpha:.3f}, decision={decision}')
         assert alpha < 0.4, f'Expected low coherence, got {alpha}'
 
-        print('✅ Sample data tests passed!')
+        print('Sample data tests passed!')
         "
 
     - name: Test compression reproducibility
@@ -316,7 +318,7 @@ jobs:
         reconstructed = compressor.decompress(result1.compressed_data)
         assert np.allclose(data, reconstructed, rtol=1e-10)
 
-        print('✅ Compression reproducibility verified!')
+        print('Compression reproducibility verified!')
         "
 
     - name: Test vector search reproducibility
@@ -341,7 +343,7 @@ jobs:
         assert np.array_equal(result1.indices, result2.indices)
         assert np.allclose(result1.distances, result2.distances)
 
-        print('✅ Vector search reproducibility verified!')
+        print('Vector search reproducibility verified!')
         "
 
     - name: Test regime detection reproducibility
@@ -362,7 +364,7 @@ jobs:
         assert len(seams1) == len(seams2)
         assert len(regimes1) == len(regimes2)
 
-        print('✅ Regime detection reproducibility verified!')
+        print('Regime detection reproducibility verified!')
         "
 
   cli:
@@ -457,7 +459,7 @@ jobs:
             data = np.load(f'data/samples/{sample}_timeseries.npy')
             compressor = SeamAwareCompressor(involution='reverse')
             result = compressor.compress(data)
-            print(f'{sample}: α={result.coherence:.3f}, ratio={result.compression_ratio:.2f}x')
+            print(f'{sample}: alpha={result.coherence:.3f}, ratio={result.compression_ratio:.2f}x')
         "
 
     - name: Test vector search on sample data

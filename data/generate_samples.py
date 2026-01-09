@@ -8,28 +8,28 @@ import numpy as np
 from pathlib import Path
 
 # Create samples directory
-samples_dir = Path(__file__).parent / 'samples'
+samples_dir = Path(__file__).parent / "samples"
 samples_dir.mkdir(exist_ok=True)
 
 print("Generating sample datasets...")
 
 # 1. Symmetric time series (palindromic)
 print("  - symmetric_timeseries.npy")
-t = np.linspace(0, 2*np.pi, 128)
-symmetric_signal = np.sin(t) + 0.5*np.cos(2*t)
+t = np.linspace(0, 2 * np.pi, 128)
+symmetric_signal = np.sin(t) + 0.5 * np.cos(2 * t)
 # Make it symmetric by averaging with reverse
 symmetric_signal = (symmetric_signal + symmetric_signal[::-1]) / 2
-np.save(samples_dir / 'symmetric_timeseries.npy', symmetric_signal)
+np.save(samples_dir / "symmetric_timeseries.npy", symmetric_signal)
 
 # 2. Antisymmetric time series
 print("  - antisymmetric_timeseries.npy")
 antisymmetric_signal = (symmetric_signal - symmetric_signal[::-1]) / 2
-np.save(samples_dir / 'antisymmetric_timeseries.npy', antisymmetric_signal)
+np.save(samples_dir / "antisymmetric_timeseries.npy", antisymmetric_signal)
 
 # 3. Mixed coherence time series
 print("  - mixed_timeseries.npy")
 mixed_signal = 0.6 * symmetric_signal + 0.4 * np.random.randn(128)
-np.save(samples_dir / 'mixed_timeseries.npy', mixed_signal)
+np.save(samples_dir / "mixed_timeseries.npy", mixed_signal)
 
 # 4. Embedding vectors (simulated CLIP-like)
 print("  - embeddings_symmetric.npy")
@@ -39,16 +39,18 @@ embeddings = np.random.randn(n_vectors, dim)
 # Add antipodal symmetry
 for i in range(0, n_vectors, 2):
     if i + 1 < n_vectors:
-        embeddings[i+1] = -embeddings[i] + np.random.randn(dim) * 0.1
+        embeddings[i + 1] = -embeddings[i] + np.random.randn(dim) * 0.1
 # Normalize
 embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
-np.save(samples_dir / 'embeddings_symmetric.npy', embeddings)
+np.save(samples_dir / "embeddings_symmetric.npy", embeddings)
 
 # 5. Random embeddings (no symmetry)
 print("  - embeddings_random.npy")
 random_embeddings = np.random.randn(100, 256)
-random_embeddings = random_embeddings / np.linalg.norm(random_embeddings, axis=1, keepdims=True)
-np.save(samples_dir / 'embeddings_random.npy', random_embeddings)
+random_embeddings = random_embeddings / np.linalg.norm(
+    random_embeddings, axis=1, keepdims=True
+)
+np.save(samples_dir / "embeddings_random.npy", random_embeddings)
 
 # 6. Regime-structured time series
 print("  - regime_timeseries.npy")
@@ -57,18 +59,18 @@ regime1 = np.tile([1, 2, 3, 2, 1], 40)  # Symmetric (200 samples)
 regime2 = np.tile([1, 2, 0, -2, -1], 40)  # Antisymmetric (200 samples)
 regime3 = np.tile([1, 2, 3, 2, 1], 40)  # Symmetric again (200 samples)
 regime_series = np.concatenate([regime1, regime2, regime3])
-np.save(samples_dir / 'regime_timeseries.npy', regime_series)
+np.save(samples_dir / "regime_timeseries.npy", regime_series)
 
 # 7. High-coherence vector
 print("  - high_coherence_vector.npy")
 high_coh = np.random.randn(128)
 high_coh = (high_coh + high_coh[::-1]) / 2 + np.random.randn(128) * 0.1
-np.save(samples_dir / 'high_coherence_vector.npy', high_coh)
+np.save(samples_dir / "high_coherence_vector.npy", high_coh)
 
 # 8. Low-coherence vector
 print("  - low_coherence_vector.npy")
 low_coh = np.random.randn(128)
-np.save(samples_dir / 'low_coherence_vector.npy', low_coh)
+np.save(samples_dir / "low_coherence_vector.npy", low_coh)
 
 # Create README
 readme_content = """# Sample Datasets
@@ -170,12 +172,12 @@ This will overwrite existing files.
 These sample datasets are provided for testing and educational purposes under the MIT License.
 """
 
-with open(samples_dir / 'README.md', 'w') as f:
+with open(samples_dir / "README.md", "w", encoding="utf-8") as f:
     f.write(readme_content)
 
-print("\n✅ Sample datasets generated successfully!")
-print(f"📁 Location: {samples_dir}")
+print("\nSample datasets generated successfully!")
+print(f"Location: {samples_dir}")
 print("\nGenerated files:")
-for file in sorted(samples_dir.glob('*.npy')):
+for file in sorted(samples_dir.glob("*.npy")):
     size_kb = file.stat().st_size / 1024
     print(f"  - {file.name} ({size_kb:.1f} KB)")
