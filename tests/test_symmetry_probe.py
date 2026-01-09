@@ -197,7 +197,9 @@ class TestMDLDecision:
 
         # For small n, α_crit should be noticeably above 0.5
         alpha_crit_small = critical_coherence(n=10, K_lift=K_lift)
-        assert alpha_crit_small >= 0.55  # For n=10, K_lift=1.0: (10+1)/(2*10) = 0.55 exactly
+        assert (
+            alpha_crit_small >= 0.55
+        )  # For n=10, K_lift=1.0: (10+1)/(2*10) = 0.55 exactly
 
 
 class TestDecomposition:

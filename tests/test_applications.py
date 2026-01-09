@@ -117,7 +117,9 @@ class TestAntipodalVectorDB:
 
         assert len(result.indices) == 5
         assert len(result.distances) == 5
-        assert result.query_time_ms >= 0  # May be 0 on Windows (fast operation + low timer resolution)
+        assert (
+            result.query_time_ms >= 0
+        )  # May be 0 on Windows (fast operation + low timer resolution)
         assert all(0 <= idx < 100 for idx in result.indices)
 
     def test_vectordb_with_partitioning(self):

@@ -15,7 +15,7 @@ For Bernoulli coin-flip model: K_lift = 1
 For Markov chain: K_lift depends on transition structure
 """
 
-from typing import Callable, Dict, Literal, Optional, Tuple, overload
+from typing import Callable, Dict, Literal, Optional, Tuple, Union, overload
 
 import numpy as np
 
@@ -171,7 +171,7 @@ def mdl_decision_rule(
     n: int,
     K_lift: float = 1.0,
     return_details: Literal[True] = True,
-) -> Tuple[bool, Dict[str, float | int | str]]: ...
+) -> Tuple[bool, Dict[str, Union[float, int, str]]]: ...
 
 
 def mdl_decision_rule(
@@ -179,7 +179,7 @@ def mdl_decision_rule(
     n: int,
     K_lift: float = 1.0,
     return_details: bool = False,
-) -> bool | Tuple[bool, Dict[str, float | int | str]]:
+) -> Union[bool, Tuple[bool, Dict[str, Union[float, int, str]]]]:
     """
     MDL-based decision: Should we exploit symmetry?
 
