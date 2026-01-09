@@ -17,7 +17,7 @@ a lighthouse beam, illuminating regime boundaries.
 
 import warnings
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, overload
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union, overload
 
 import numpy as np
 
@@ -290,10 +290,10 @@ class LighthouseDetector:
         self,
         time_series: np.ndarray,
         return_coherence: bool = False,
-    ) -> (
-        Tuple[List[SeamPoint], List[RegimeSegment]]
-        | Tuple[List[SeamPoint], List[RegimeSegment], np.ndarray, np.ndarray]
-    ):
+    ) -> Union[
+        Tuple[List[SeamPoint], List[RegimeSegment]],
+        Tuple[List[SeamPoint], List[RegimeSegment], np.ndarray, np.ndarray],
+    ]:
         """
         Detect regime transitions in time series.
 
